@@ -2441,62 +2441,29 @@ midpoint_load_hook:
 	lda.w {midpoint_flag}
 	jml $80E6A7
 
-
-// Music disable.
-// FIXME: Use volume control to disable music, so that the lag from changing
-// songs is just as slow.
+// New music disable. Hook into adding music events to the queue and check for volume changes (A=FF or A=FE)
+// In those cases, change the target volume (Y register) to 0.
 {savepc}
-	{reorg $808799}
-	jml play_music_hook
+	{reorg $80887B}
+	jml music_event_hook
 {loadpc}
-play_music_hook:
-	// We want A=8 for the moment.  Also, deleted code.
-	sep #$30
-	// Save the song ID to stack.
-	pha
-	// Check for the "music off" config setting.
-	lda.l {sram_config_musicoff}
-	beq .music_on
-	// Stack layout at this point:
-	// S -> byte before stack
-	//      saved song number
-	//      low byte of 808799's near return address
-	//      high byte of 808799's near return address
-	//      low byte of 80878B's saved D register      \ 
-	//      high byte of 80878B's saved D register      \ 
-	//      80878B's saved P register                    > assuming caller was rom_play_music
-	//      low byte of 80878B's far return address     /
-	//      high byte of 80878B's far return address   /
-	//      low byte of 80878B's far return address   /
-	// Check whether the caller was rom_play_music (middle of $80878B).
-	rep #$20
-	lda 2, s
-	cmp.w #($808796 - 1) & $FFFF
-	bne .music_off
-	// Check whether rom_play_music's caller is the config menu's BGM option.
-	lda 7, s
-	cmp.w #($80EC6B - 1) & $FFFF
-	bne .music_off
-	sep #$20
-	lda 9, s
-	cmp.b #$80EC6B >> 16
-	beq .music_on
+music_event_hook:
+	// Deleted code
+	sta.w $0B72, x
+	// Check if the event is a volume change
+	cmp.b #$FF
+	beq .music_off
+	cmp.b #$FE
+	beq .music_off
+.other:
+	tya
+	bra .done
 .music_off:
-	// Music is off, and we're not in the config screen.
-	sep #$30
-	pla
-	jml {rom_rts_instruction}
-.music_on:
-	// Deleted code, but we need for pla.
-	sep #$30
-	// Restore song ID.
-	pla
-	// Deleted code.
-	tay
-	lda $806B, y
-	// Return to play_music code.
-	jml $80879F
-
+	lda.l {sram_config_musicoff}
+	beq .other
+	lda.b #0
+.done:
+	jml $80887F
 
 // Fixed drop rate - always drop items.
 {savepc}
