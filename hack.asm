@@ -414,10 +414,11 @@ patch_main_menu_text:
 	db "Ver. "
 	db $30 + {version_major}, '.', $30 + {version_minor}, $30 + {version_revision}
 	db "   "
-	{reorg $84CE4B}
-	db "2014-2021     "
-	{reorg $84CE5C}
-	db "Myria, Total, and Akiteru"
+
+	{reorg $84CE3D}
+	db "(c) 2014-2021"
+	db $80, $87, $0A
+	db "Myria, Total, and Akiteru     "
 {loadpc}
 
 // Make the useless hidden "PASS WORD" option unavailable.
