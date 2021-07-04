@@ -187,6 +187,13 @@ eval sram_size $080000
 	bra $809597
 {loadpc}
 
+// Disable Zero cutscene after completing last stage in the route
+{savepc}
+	{reorg $809FFD}
+	// The bitflags for stages defeated are loaded into accu here, then compared to #$FF.
+	// Just load 0 instead.
+	lda.b #0
+{loadpc}
 
 // Disable interstage password screen.
 {savepc}
@@ -414,7 +421,6 @@ patch_main_menu_text:
 	db "Ver. "
 	db $30 + {version_major}, '.', $30 + {version_minor}, $30 + {version_revision}
 	db "   "
-
 	{reorg $84CE3D}
 	db "(c) 2014-2021"
 	db $80, $87, $0A
