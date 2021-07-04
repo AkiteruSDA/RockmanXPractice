@@ -81,6 +81,7 @@ eval load_temporary_rng $7F0000
 // ROM addresses
 eval rom_play_music $80878B
 eval rom_play_sound $8088B6
+eval rom_add_music_event $808878 // A=event, Y=param
 eval rom_rtl_instruction $808798  // last instruction of rom_play_sound
 eval rom_rts_instruction $8087D0  // last instruction of some part of rom_play_music
 eval rom_nmi_after_pushes $808173
@@ -1049,7 +1050,10 @@ config_menu_extra_string_table:
 	// We return to a flush call.
 .end:
 
-
+// Trampoline for calling rom_add_music_event
+trampoline_add_music_event:
+	pea ({rom_rtl_instruction} - 1) & 0xFFFF
+	jml {rom_add_music_event}
 // Trampoline for calling $808100  (flush string draw buffer?)
 trampoline_808100:
 	pea ({rom_rtl_instruction} - 1) & 0xFFFF
@@ -1292,7 +1296,7 @@ config_option_jump_table:
 	dl {rom_config_button} - 1
 	dl {rom_config_stereo} - 1
 	dl config_code_musicoff - 1
-	dl {rom_config_bgm} - 1
+	dl config_code_bgm - 1
 	dl {rom_config_se} - 1
 	dl config_code_category - 1
 	dl config_code_route1 - 1
@@ -1302,9 +1306,39 @@ config_option_jump_table:
 	dl config_code_godmode - 1
 	dl config_code_fixdrop - 1
 	dl config_code_delay - 1
-	dl {rom_config_exit} - 1
+	dl config_code_exit - 1
 .end:
 
+config_code_bgm:
+	pha
+	phy
+	lda.b #$FF
+	ldy.b #$69
+	jsl trampoline_add_music_event
+	ply
+	pla
+	jml {rom_config_bgm}
+
+config_code_exit:
+	pha
+	phy
+	// Is start, Y, or A being pressed?
+	lda.w {controller_1_new}
+	and.b #$80
+	bne .pressed
+	lda.w {controller_1_new} + 1
+	and.b #$50
+	bne .pressed
+	bra .not_pressed
+.pressed:
+	// Reset the volume based on the current config setting before leaving the menu
+	lda.b #$FF
+	ldy.b #$FF
+	jsl trampoline_add_music_event
+.not_pressed:
+	ply
+	pla
+	jml {rom_config_exit}
 
 // Skip over second route option when it's disabled.
 config_hook_increment:
@@ -2451,17 +2485,24 @@ music_event_hook:
 	// Deleted code
 	sta.w $0B72, x
 	// Check if the event is a volume change
-	cmp.b #$FF
+	cmp.b #$FF // Volume down
 	beq .music_off
-	cmp.b #$FE
+	cmp.b #$FE // Volume up
 	beq .music_off
-.other:
+.default:
 	tya
 	bra .done
 .music_off:
+	// #$69 is an override volume that sets the volume to #$FF regardless of configuration
+	tya
+	cmp.b #$69
+	beq .override
 	lda.l {sram_config_musicoff}
-	beq .other
+	beq .default
 	lda.b #0
+	bra .done
+.override:
+	lda.b #$FF
 .done:
 	jml $80887F
 
