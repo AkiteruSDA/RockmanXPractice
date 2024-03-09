@@ -1719,7 +1719,7 @@ nmi_hook:
 
 	// We need to suppress repeating ourselves when L or R is held down.
 	cmp.l {sram_previous_command}
-	beq .return_normal_no_rep
+	bra .return_normal_no_rep // Changing this to an unconditional branch to remove save state functionality
 	sta.l {sram_previous_command}
 
 	// Distinguish between the cases.
